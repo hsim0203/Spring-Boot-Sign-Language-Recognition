@@ -253,7 +253,7 @@ def image_send_test02():
         encoded_data = encoded_data.replace("image/jpeg;base64,","")
         decoded_data = base64.b64decode(encoded_data)
 
-        #index번호.jpg로 파일 저장하는 객채 f
+        #index번호.jpg로 파일 저장
         with open(f"image{index}.jpg","wb") as f:
             f.write(decoded_data)
 
