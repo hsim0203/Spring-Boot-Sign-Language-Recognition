@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8">
+<title>웹캠</title>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script type="text/javascript">
+var canvas_img_arr = new Array();
+var detectBox = new Array();
+var frame_count = 0;
+
+function camera_start(){
+	var video = document.getElementById("webCamera");
+	
+	if (navigator.mediaDevices.getUserMedia) {
+		navigator.mediaDevices.getUserMedia({ video: true })
+		
+		//설정 완료후 비디오 화면을 stream변수에 저장 및 출력
+		.then(function (stream) {
+			video.srcObject = stream;
+		});
+	}
+}
+
+function drawImage(){
+	var video = document.getElementById("webCamera");
+	var canvas = document.getElementById("videoCanvas");
+	var ctx = canvas.getContext('2d');
+	
+	canvas.width = video.videoWidth;
+	canvas.height = video.videoHeight;
+	
+	ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+	
+	//ctx.fillStyle = "blue";
+	//ctx.lineWidth = 1;
+	//ctx.font = "20px arial";
+	//ctx.fillText ("LSTM 예측 결과 출력 할 겁니다", 20,40);
+	
+	for(var i=0;i<detectBox.length;i++){
+		var box = detectBox[i];
+		var text = box.text;
+		var x = box.x;
+		var y = box.y;
+		
+		ctx.fillStyle = "blue";
+		ctx.lineWidth = 1;
+		ctx.font = "20px arial";
+		
+		ctx.fillText (text,x,y);
+	}
+	
+	var canvas_img = canvas.toDataURL("image/jpeg", 1.0);
+	canvas_img_arr[canvas_img_arr.length]=canvas_img;
+	frame_count = frame_count+1;
+	
+	if(frame_count == 5) {
+		frame_count = 0;
+		canvas_img_arr = canvas_img_arr.slice(-5);
+		
+	 	
+		axios({
+			method: "post",
+			url: "sendLstm.do",
+			data:{"img_data":canvas_img_arr} ,
+			headers:{ 'Content-Type':"image/jpeg" }
+		})
+		
+		.then(function(response) {
+			console.log("response="+response);
+			console.log("JSON.stringify(response.data)="+JSON.stringify(response.data));
+			
+			detectBox.splice(0, detectBox.length);
+			
+			for(var i=0; i<response.data.length; i++){
+				
+				x = response.data[i].x;
+				y = response.data[i].y;
+				
+				text = response.data[i].text;
+				
+				var detect = {"x":x, "y":y, "text":text};
+				
+				detectBox[detectBox.length]=detect;
+			}
+		});
+	}
+	
+	
+	setTimeout(drawImage, 1000/24);
+}
+</script>
+</head>
+<body onload="camera_start()">
+	<h3>webcam.html</h3>
+	<video autoplay="true" id="webCamera" style="display: none;"></video><br/>
+	<canvas id="videoCanvas" style="background-color: green;"></canvas>
+	
+	<script type="text/javascript">
+	var video = document.getElementById("webCamera");
+	video.onplay = function() {
+		setTimeout(drawImage, 300);
+	};
+	</script>
+</body>
+</html>
